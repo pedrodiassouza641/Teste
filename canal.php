@@ -1,46 +1,47 @@
 <?php
-// 1. Captura o ID do canal que o aplicativo quer assistir.
-// Se você chamar: canais.php?id=21236, ele vai entender.
-$id_canal = isset($_GET['id']) ? $_GET['id'] : '21236';
+// Configura o cabeçalho para o aplicativo de IPTV entender que isso é uma lista M3U
+header('Content-Type: application/vnd.apple.mpegurl');
+header('Content-Disposition: inline; filename="tv_channels_278385497_plus.m3u"');
 
 $username = "278385497";
 $password = "095291134";
 
-// 2. Monta a URL original do canal
-$url_original = "https://pop25.live/{$username}/{$password}/{$id_canal}";
+// 1. Montamos a URL do Xtream Codes que gera a lista completa de canais
+$url_lista_original = "http://pop25.live:80/get.php?username=" . $username . "&password=" . $password . "&type=m3u_plus";
 
-// 3. Faz a requisição rápida APENAS para pegar o cabeçalho de redirecionamento (Location)
-// Importante: Passamos os dados do cliente (como o IP dele e o User-Agent) para o token ser gerado para ELE, e não para o Reader
+// 2. Fazemos o cURL baixar o arquivo .m3u original enviado pelo pop25
 $ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, $url_original);
+curl_setopt($ch, CURLOPT_URL, $url_lista_original);
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HEADER, true); 
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-// Repassa o navegador do usuário para o pop25 para evitar o 403 do token
-if (isset($_SERVER['HTTP_USER_AGENT'])) {
-    curl_setopt($ch, CURLOPT_USERAGENT, $_SERVER['HTTP_USER_AGENT']);
-}
+// Fingimos ser o Chrome para o servidor não desconfiar
+curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36');
 
-$resposta = curl_exec($ch);
+$conteudo_m3u = curl_exec($ch);
+$http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
-// 4. Captura a URL com o token gerado pelo pop25
-$url_com_token = "";
-if (preg_match('/^Location:\s*(.*)$/mi', $resposta, $matches)) {
-    $url_com_token = trim($matches[1]);
-}
+// 3. Se o servidor do pop25 responder com sucesso, fazemos a mágica da substituição
+if ($http_code == 200 && !empty($conteudo_m3u)) {
+    
+    // Procuramos por "pop25.live" dentro de todos os links da lista e trocamos pelo novo IP "38.135.26.210"
+    // Isso vai corrigir o link de TODOS os canais automaticamente antes de enviar para o seu aplicativo
+    $lista_corrigida = str_replace("https://pop25.live", "http://38.135.26.210", $conteudo_m3u);
+    $lista_corrigida = str_replace("http://pop25.live", "http://38.135.26.210", $lista_corrigida);
+    
+    // Também garante que se houver o IP antigo (.209) no texto, ele vire o novo (.210)
+    $lista_corrigida = str_replace("38.135.26.209", "38.135.26.210", $lista_corrigida);
 
-// 5. Se o token foi gerado, trocamos o IP inválido pelo novo e redirecionamos o player do IPTV
-if (!empty($url_com_token)) {
-    $url_corrigida = str_replace("38.135.26.209", "38.135.26.210", $url_com_token);
-    header("Location: " . $url_corrigida);
-    exit;
+    // Entrega a lista prontinha e modificada para o aplicativo de IPTV
+    echo $lista_corrigida;
+
 } else {
-    // Se o pop25 bloquear o Reader por IP de qualquer forma, usamos o redirecionamento forçado por texto (Plano B)
-    // Esse método tenta mandar o aplicativo direto pro IP novo usando a estrutura padrão, caso o cURL faleça.
-    $url_forcada = "http://38.135.26.210/{$username}/{$password}/{$id_canal}";
-    header("Location: " . $url_forcada);
-    exit;
+    // Caso o servidor bloqueie o Reader no download da lista, usamos uma lista de contingência baseada em texto
+    echo "#EXTM3U\n";
+    echo "#EXTINF:-1, [ERRO] O servidor pop25 bloqueou o Reader (Erro HTTP " . $http_code . ")\n";
+    echo "http://38.135.26.210:80/get.php?username=" . $username . "&password=" . $password . "&type=m3u_plus\n";
 }
+exit;
 ?>
