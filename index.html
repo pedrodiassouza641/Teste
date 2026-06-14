@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Gerador de Lista IPTV</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #222; color: #fff; }
+        button { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #28a745; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #218838; }
+        #status { margin-top: 20px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>Gerar Lista IPTV Atualizada</h1>
+    <p>Clique no botão abaixo para buscar o token do seu IP e baixar a lista corrigida.</p>
+    <button onclick="gerarLista()">Baixar Lista M3U</button>
+    <div id="status"></div>
+
+    <script>
+        async function gerarLista() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = "Buscando token original (isso pode demorar um pouco)...";
+            
+            try {
+                // Faz a requisição usando o seu navegador (pula o bloqueio do servidor)
+                const urlOriginal = "https://pop25.live/278385497/095291134/21236";
+                
+                // Como o pop25 redireciona, precisamos buscar o cabeçalho. 
+                // Nota: se o pop25 bloquear CORS no navegador, precisaremos de um proxy de CORS gratuito.
+                const resposta = await fetch(urlOriginal, { method: 'HEAD', redirect: 'follow' });
+                const urlComToken = resposta.url;
+
+                statusDiv.innerText = "Token gerado! Corrigindo IP...";
+                
+                // Modifica o IP antigo pelo novo
+                const urlCorrigida = urlComToken.replace("38.135.26.209", "38.135.26.210");
+                
+                statusDiv.innerText = "Baixando conteúdo da lista...";
+                const buscaLista = await fetch(urlCorrigida);
+                const textoM3u = await buscaLista.text();
+
+                // Cria o arquivo para download automático
+                const blob = new Blob([textoM3u], { type: 'text/plain' });
+                const elemento = document.createElement('a');
+                elemento.href = URL.createObjectURL(blob);
+                elemento.download = "lista_corrigida.m3u";
+                document.body.appendChild(elemento);
+                elemento.click();
+                document.body.removeChild(elemento);
+                
+                statusDiv.innerText = "Lista baixada com sucesso!";
+            } catch (erro) {
+                statusDiv.innerText = "Erro ao processar. Se o redirecionamento falhar por CORS, precisamos ajustar o método.";
+                console.error(erro);
+            }
+        }
+    </script>
+</body>
+</html>
