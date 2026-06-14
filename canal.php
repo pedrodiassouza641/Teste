@@ -3,14 +3,18 @@
 header('Content-Type: application/vnd.apple.mpegurl');
 header('Content-Disposition: inline; filename="lista.m3u"');
 
-// 1. Faz a requisição para o pop25 original para ele gerar o token
+//// 1. Faz a requisição para o pop25 original simulando um navegador real
 $url_original = "https://pop25.live/278385497/095291134/21236";
 
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_URL, $url_original);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); // Não segue o redirecionamento automaticamente
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false); 
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HEADER, true);
+
+// ESSA LINHA SIMULA UM NAVEGADOR CHROME NO WINDOWS:
+curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
 $resposta = curl_exec($ch);
 
 // 2. Pega a URL de redirecionamento gerada com o token
